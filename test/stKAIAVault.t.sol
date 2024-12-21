@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.25;
 
-import { IKUSD } from "src/IKUSD.sol";
-import { StKAIA } from "src/stKAIA.sol";
-import { KUSD } from "src/kUSD.sol";
-import { stKAIAVault } from "src/stKAIAVault.sol";
-import { Test, console } from "forge-std/Test.sol";
+import {IKUSD} from "src/IKUSD.sol";
+import {StKAIA} from "src/stKAIA.sol";
+import {KUSD} from "src/kUSD.sol";
+import {stKAIAVault} from "src/stKAIAVault.sol";
+import {Test, console} from "forge-std/Test.sol";
 
 contract stKAIAVaultTest is Test {
     StKAIA public stkaia;
