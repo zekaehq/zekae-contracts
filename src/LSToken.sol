@@ -4,7 +4,7 @@ pragma solidity ^0.8.22;
 
 import {ERC20} from "src/ERC20.sol";
 
-contract StKAIA is ERC20("stKAIA", "stKAIA", 18) {
+contract LSToken is ERC20("LSToken", "LST", 18) {
     address public owner;
 
     constructor(address _owner) {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
 
-interface IKUSD {
+interface IZUSD {
 
     event Transfer(address indexed from, address indexed to, uint256 value);
 

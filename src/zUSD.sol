@@ -4,7 +4,7 @@ pragma solidity ^0.8.22;
 
 import {ERC20} from "src/ERC20.sol";
 
-contract KUSD is ERC20("kUSD", "kUSD", 18) {
+contract zUSD is ERC20("zUSD", "zUSD", 18) {
     address public owner;
 
     constructor(address _owner) {
