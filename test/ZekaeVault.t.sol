@@ -13,6 +13,7 @@ contract ZekaeVaultTest is Test {
     zUSD public zusd;
     ZekaeVault public zekaeVault;
     address public constant USER = address(1);
+    address public constant LIQUIDATOR = address(2);
     uint256 public constant lstokenPriceAtCreation = 10e18;
 
     function setUp() public {
@@ -54,6 +55,19 @@ contract ZekaeVaultTest is Test {
         assertEq(lstoken.balanceOf(USER), 999000e18);
         assertEq(lstoken.balanceOf(address(zekaeVault)), 1000e18);
         assertEq(zusd.balanceOf(USER), 0e18);
+    }
+
+    function test_RevertIf_LiquidateWhenUserCollateralRatioIsMoreThanMinCollateralRatio() public {
+        vm.startPrank(USER);
+        lstoken.mint(USER, 1000000e18);
+        lstoken.approve(address(zekaeVault), 1000e18);
+        zekaeVault.deposit(1000e18);
+        zekaeVault.mint(100e18);
+        vm.stopPrank();
+        vm.startPrank(LIQUIDATOR);
+        vm.expectRevert();
+        zekaeVault.liquidate(USER);
+        vm.stopPrank();
     }
 }
 
