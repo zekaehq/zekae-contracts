@@ -32,7 +32,7 @@ contract ZekaeVaultTest is Test {
         assertEq(address(zusd.owner()), address(zekaeVault));
     }
 
-    function test_stKAIAVaultDepositAndMint() public {
+    function test_ZekaeVaultDepositAndMint() public {
         vm.startPrank(USER);
         lstoken.mint(USER, 1000000e18);
         lstoken.approve(address(zekaeVault), 1000e18);
