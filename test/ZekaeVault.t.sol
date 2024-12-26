@@ -42,4 +42,18 @@ contract ZekaeVaultTest is Test {
         assertEq(lstoken.balanceOf(USER), 999000e18);
         assertEq(zusd.balanceOf(USER), 100e18);
     }
+
+    function test_ZekaeVaultDepositMintAndBurn() public {
+        vm.startPrank(USER);
+        lstoken.mint(USER, 1000000e18);
+        lstoken.approve(address(zekaeVault), 1000e18);
+        zekaeVault.deposit(1000e18);
+        zekaeVault.mint(100e18);
+        zekaeVault.burn(100e18);
+        vm.stopPrank();
+        assertEq(lstoken.balanceOf(USER), 999000e18);
+        assertEq(lstoken.balanceOf(address(zekaeVault)), 1000e18);
+        assertEq(zusd.balanceOf(USER), 0e18);
+    }
 }
+
