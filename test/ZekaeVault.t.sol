@@ -6,6 +6,7 @@ import {IZUSD} from "src/IZUSD.sol";
 import {LSToken} from "src/LSToken.sol";
 import {zUSD} from "src/zUSD.sol";
 import {ZekaeVault} from "src/ZekaeVault.sol";
+import {SimpleMockOracle} from "src/SimpleMockOracle.sol";
 import {Test, console} from "forge-std/Test.sol";
 
 contract ZekaeVaultTest is Test {
@@ -15,11 +16,13 @@ contract ZekaeVaultTest is Test {
     address public constant USER = address(1);
     address public constant LIQUIDATOR = address(2);
     uint256 public constant lstokenPriceAtCreation = 10e18;
+    SimpleMockOracle public oracle;
 
     function setUp() public {
         lstoken = new LSToken(USER);
         zusd = new zUSD(USER);
-        zekaeVault = new ZekaeVault(address(lstoken), address(zusd), lstokenPriceAtCreation);
+        oracle = new SimpleMockOracle(USER);
+        zekaeVault = new ZekaeVault(address(lstoken), address(zusd), address(oracle));
         vm.startPrank(USER);
         zusd.changeOwner(address(zekaeVault));
         vm.stopPrank();
@@ -31,6 +34,10 @@ contract ZekaeVaultTest is Test {
 
     function test_zUSDOwner() public view {
         assertEq(address(zusd.owner()), address(zekaeVault));
+    }
+
+    function test_OracleOwner() public view {
+        assertEq(address(oracle.owner()), USER);
     }
 
     function test_ZekaeVaultDepositAndMint() public {
