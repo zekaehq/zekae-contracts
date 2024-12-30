@@ -21,8 +21,8 @@ contract ZekaeVaultTest is Test {
     function setUp() public {
         lstoken = new LSToken(USER);
         zusd = new zUSD(USER);
-        oracle = new SimpleMockOracle(USER);
-        zekaeVault = new ZekaeVault(address(lstoken), address(zusd), address(oracle));
+        oracle = new SimpleMockOracle(USER, 1.443307e18, 10e18);
+        zekaeVault = new ZekaeVault(address(lstoken), address(zusd), address(oracle), LIQUIDATOR);
         vm.startPrank(USER);
         zusd.changeOwner(address(zekaeVault));
         vm.stopPrank();
@@ -76,5 +76,25 @@ contract ZekaeVaultTest is Test {
         zekaeVault.liquidate(USER);
         vm.stopPrank();
     }
+
+    function test_LiquidateWhenUserCollateralRatioIsLessThanMinCollateralRatio() public {
+        vm.startPrank(USER);
+        lstoken.mint(USER, 1000000e18);
+        lstoken.approve(address(zekaeVault), 1000e18);
+        zekaeVault.deposit(10e18);
+        uint256 initialUserDeposit = zekaeVault.addressToDeposit(USER);
+        zekaeVault.mint(50e18);
+        uint256 initialUserMinted = zekaeVault.addressToMinted(USER);
+        oracle.setUnderlyingAssetPrice(5e18);
+        vm.stopPrank();
+        vm.startPrank(LIQUIDATOR);
+        zekaeVault.liquidate(USER);
+        uint256 amountOfLstokenToBeLiquidated = (initialUserMinted * 1e18) / oracle.latestAnswer();
+        vm.stopPrank();
+        assertEq(zusd.balanceOf(USER), 0e18);
+        assertEq(lstoken.balanceOf(LIQUIDATOR), amountOfLstokenToBeLiquidated);
+        assertEq(zekaeVault.addressToDeposit(USER), initialUserDeposit - amountOfLstokenToBeLiquidated);
+    }
 }
+
 
