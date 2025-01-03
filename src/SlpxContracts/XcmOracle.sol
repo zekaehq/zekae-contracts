@@ -1,65 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.25;
+pragma solidity 0.8.10;
 
-import "src/MoonbeamSlpx.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "./MoonbeamSlpx.sol";
 
-contract XcmOracle {
-
-    /*//////////////////////////////////////////////////////////////
-                            ERRORS
-    //////////////////////////////////////////////////////////////*/
-
-    error Unauthorized();
-
-    /*//////////////////////////////////////////////////////////////
-                            METADATA STORAGE
-    //////////////////////////////////////////////////////////////*/
-    address public owner;
-
+contract XcmOracle is OwnableUpgradeable, PausableUpgradeable {
     struct PoolInfo {
         uint256 assetAmount;
         uint256 vAssetAmount;
     }
-
     struct RateInfo {
         uint8 mintRate;
         uint8 redeemRate;
     }
-
     RateInfo public rateInfo;
-
     address public slxAddress;
-
     address public sovereignAddress;
-
     mapping(bytes2 => PoolInfo) public tokenPool;
 
-    /*//////////////////////////////////////////////////////////////
-                            MODIFIERS
-    //////////////////////////////////////////////////////////////*/
-    modifier onlyOwner() {
-        if (msg.sender != owner) {
-            revert Unauthorized();
-        }
-        _;
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                            CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
-    constructor(
+    function initialize(
         address _SlxAddress,
-        address _SovereignAddress,
-        address _owner  
-    ) {
+        address _SovereignAddress
+    ) public initializer {
+        __Ownable_init();
+        __Pausable_init();
         slxAddress = _SlxAddress;
         sovereignAddress = _SovereignAddress;
-        owner = _owner;
     }
-
-    /*//////////////////////////////////////////////////////////////
-                               ERC20 LOGIC
-    //////////////////////////////////////////////////////////////*/
 
     /// Bifrost will set a fee and the data will be consistent with Bifrost Chain.
     function setRate(uint8 _mintRate, uint8 _redeemRate) public onlyOwner {
@@ -120,5 +88,13 @@ contract XcmOracle {
             .addressToAssetInfo(_assetAddress);
         require(currencyId != 0x0000, "Not found");
         return currencyId;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }

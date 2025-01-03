@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.25;
+pragma solidity 0.8.10;
 
-import "src/SlpxContracts/interfaces/XcmTransactorV2.sol";
-import "src/SlpxContracts/interfaces/Xtokens.sol";
-import "src/SlpxContracts/interfaces/ISlpx.sol";
-import "src/SlpxContracts/utils/AddressToAccount.sol";
-import "src/SlpxContracts/utils/BuildCallData.sol";
+import "./interfaces/XcmTransactorV2.sol";
+import "./interfaces/Xtokens.sol";
+import "./interfaces/ISlpx.sol";
+import "./utils/AddressToAccount.sol";
+import "./utils/BuildCallData.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-contract MoonbeamSlpx is ISlpx {
+contract MoonbeamSlpx is ISlpx, OwnableUpgradeable, PausableUpgradeable {
     address internal constant NATIVE_ASSET_ADDRESS =
         0x0000000000000000000000000000000000000802;
     address internal constant XCM_TRANSACTORV2_ADDRESS =

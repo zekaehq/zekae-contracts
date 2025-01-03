@@ -1,25 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.25;
+pragma solidity 0.8.10;
 
-import "src/SlpxContracts/interfaces/XcmTransactorV2.sol";
-import "src/SlpxContracts/interfaces/Xtokens.sol";
-import "src/SlpxContracts/interfaces/ISlpx.sol";
-import "src/SlpxContracts/utils/AddressToAccount.sol";
-import "src/SlpxContracts/utils/BuildCallData.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "./interfaces/XCM.sol";
+import "./interfaces/XCM_v2.sol";
+import "./interfaces/ISlpx.sol";
+import "./utils/BuildCallData.sol";
+import "./utils/AddressToAccount.sol";
 
-contract MoonbeamSlpx is ISlpx {
-    address internal constant NATIVE_ASSET_ADDRESS =
-        0x0000000000000000000000000000000000000802;
-    address internal constant XCM_TRANSACTORV2_ADDRESS =
-        0x000000000000000000000000000000000000080D;
-    address internal constant XTOKENS =
-        0x0000000000000000000000000000000000000804;
-    bytes1 internal constant MOONBEAM_CHAIN = 0x01;
-
-    XcmTransactorV2.Multilocation internal xcmTransactorDestination;
-
-    address public BNCAddress;
-    uint32 public bifrostParaId;
+contract AstarSlpx is ISlpx, OwnableUpgradeable, PausableUpgradeable {
+    address private constant NATIVE_ASSET_ADDRESS =
+        0x0000000000000000000000000000000000000000;
+    address private constant BNC_ADDRESS =
+        0xfFffFffF00000000000000010000000000000007;
+    address private constant XCM_ADDRESS =
+        0x0000000000000000000000000000000000005004;
+    bytes1 private constant ASTAR_CHAIN = 0x00;
+    uint32 private constant BIFROST_PARA_ID = 2030;
 
     enum Operation {
         Mint,
@@ -36,12 +35,10 @@ contract MoonbeamSlpx is ISlpx {
     struct FeeInfo {
         uint64 transactRequiredWeightAtMost;
         uint256 feeAmount;
-        uint64 overallWeight;
     }
 
     mapping(address => AssetInfo) public addressToAssetInfo;
     mapping(Operation => FeeInfo) public operationToFeeInfo;
-
     struct DestChainInfo {
         bool is_evm;
         bool is_substrate;
@@ -67,57 +64,28 @@ contract MoonbeamSlpx is ISlpx {
             "Invalid transactRequiredWeightAtMost"
         );
         require(feeInfo.feeAmount > 0, "Invalid feeAmount");
-        require(feeInfo.overallWeight > 0, "Invalid overallWeight");
         return feeInfo;
     }
 
-    function initialize(
-        address _BNCAddress,
-        uint32 _bifrostParaId,
-        bytes2 _nativeCurrencyId
-    ) public initializer {
+    function initialize() public initializer {
         __Ownable_init();
         __Pausable_init();
-        require(_BNCAddress != address(0), "Invalid address");
-        require(
-            _bifrostParaId == 2001 || _bifrostParaId == 2030,
-            "Invalid bifrostParaId"
-        );
-        require(
-            _nativeCurrencyId == 0x020a || _nativeCurrencyId == 0x0801,
-            "Invalid nativeCurrencyId"
-        );
-
-        setAssetAddressInfo(_BNCAddress, 0x0001, 1_000_000_000_000);
-        setAssetAddressInfo(
-            NATIVE_ASSET_ADDRESS,
-            _nativeCurrencyId,
-            1_000_000_000_000_000_000
-        );
-
-        BNCAddress = _BNCAddress;
-        bifrostParaId = _bifrostParaId;
-
-        // Init xcmTransactorDestination
-        bytes[] memory interior = new bytes[](1);
-        // Parachain: 2001/2030
-        interior[0] = bytes.concat(hex"00", bytes4(_bifrostParaId));
-        xcmTransactorDestination = XcmTransactorV2.Multilocation({
-            parents: 1,
-            interior: interior
-        });
+        setAssetAddressInfo(NATIVE_ASSET_ADDRESS, 0x0803, 1000000000000000000);
     }
 
     function setOperationToFeeInfo(
         Operation _operation,
         uint64 _transactRequiredWeightAtMost,
-        uint64 _overallWeight,
         uint256 _feeAmount
     ) public onlyOwner {
+        require(
+            _transactRequiredWeightAtMost <= 10000000000,
+            "transactRequiredWeightAtMost too large"
+        );
+        require(_feeAmount <= 1000000000000, "feeAmount too large");
         operationToFeeInfo[_operation] = FeeInfo(
             _transactRequiredWeightAtMost,
-            _feeAmount,
-            _overallWeight
+            _feeAmount
         );
     }
 
@@ -126,7 +94,6 @@ contract MoonbeamSlpx is ISlpx {
         bytes2 currencyId,
         uint256 minimumValue
     ) public onlyOwner {
-        require(assetAddress != address(0), "Invalid assetAddress");
         require(minimumValue != 0, "Invalid minimumValue");
         require(currencyId != bytes2(0), "Invalid currencyId");
         AssetInfo storage assetInfo = addressToAssetInfo[assetAddress];
@@ -142,6 +109,31 @@ contract MoonbeamSlpx is ISlpx {
         _unpause();
     }
 
+    function xcmTransferNativeAsset(uint256 amount) internal {
+        require(
+            amount >= addressToAssetInfo[NATIVE_ASSET_ADDRESS].operationalMin,
+            "Less than MinimumValue"
+        );
+        bytes32 publicKey = AddressToAccount.AddressToSubstrateAccount(
+            _msgSender()
+        );
+        address[] memory assetId = new address[](1);
+        uint256[] memory assetAmount = new uint256[](1);
+        assetId[0] = NATIVE_ASSET_ADDRESS;
+        assetAmount[0] = amount;
+        require(
+            XCM(XCM_ADDRESS).assets_reserve_transfer(
+                assetId,
+                assetAmount,
+                publicKey,
+                false,
+                BIFROST_PARA_ID,
+                0
+            ),
+            "Failed to send xcm"
+        );
+    }
+
     function xcmTransferAsset(address assetAddress, uint256 amount) internal {
         require(assetAddress != address(0), "Invalid assetAddress");
         require(
@@ -151,36 +143,20 @@ contract MoonbeamSlpx is ISlpx {
         bytes32 publicKey = AddressToAccount.AddressToSubstrateAccount(
             _msgSender()
         );
-        Xtokens.Multilocation memory dest_account = getXtokensDestination(
+
+        XCM_v2.Multilocation memory dest_account = getXtokensDestination(
             publicKey
         );
         IERC20 asset = IERC20(assetAddress);
         asset.transferFrom(_msgSender(), address(this), amount);
-        Xtokens(XTOKENS).transfer(
-            assetAddress,
-            amount,
-            dest_account,
-            type(uint64).max
-        );
-    }
-
-    function xcmTransferNativeAsset(uint256 amount) internal {
         require(
-            amount >= addressToAssetInfo[NATIVE_ASSET_ADDRESS].operationalMin,
-            "Less than MinimumValue"
-        );
-        bytes32 publicKey = AddressToAccount.AddressToSubstrateAccount(
-            _msgSender()
-        );
-
-        Xtokens.Multilocation memory dest_account = getXtokensDestination(
-            publicKey
-        );
-        Xtokens(XTOKENS).transfer(
-            NATIVE_ASSET_ADDRESS,
-            amount,
-            dest_account,
-            type(uint64).max
+            XCM_v2(XCM_ADDRESS).transfer(
+                assetAddress,
+                amount,
+                dest_account,
+                XCM_v2.WeightV2(0, 0)
+            ),
+            "Failed to send xcm"
         );
     }
 
@@ -190,26 +166,29 @@ contract MoonbeamSlpx is ISlpx {
     ) external payable override whenNotPaused {
         require(bytes(remark).length <= 32, "remark too long");
         bytes2 nativeToken = checkAssetIsExist(NATIVE_ASSET_ADDRESS);
-        // xtokens call
+
         xcmTransferNativeAsset(msg.value);
 
-        // Build bifrost xcm-action mint call data
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
+        bytes memory targetChain = abi.encodePacked(ASTAR_CHAIN, receiver);
         bytes memory callData = BuildCallData.buildMintCallBytes(
             _msgSender(),
             nativeToken,
             targetChain,
             remark
         );
-        // XCM Transact
+
+        // xcm transact
         FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
+        require(
+            XCM(XCM_ADDRESS).remote_transact(
+                BIFROST_PARA_ID,
+                false,
+                BNC_ADDRESS,
+                feeInfo.feeAmount,
+                callData,
+                feeInfo.transactRequiredWeightAtMost
+            ),
+            "Failed to send xcm"
         );
         emit Mint(
             _msgSender(),
@@ -226,7 +205,7 @@ contract MoonbeamSlpx is ISlpx {
         uint256 amount,
         address receiver,
         string memory remark
-    ) external override whenNotPaused {
+    ) external override {
         require(bytes(remark).length <= 32, "remark too long");
 
         bytes2 token = checkAssetIsExist(assetAddress);
@@ -234,23 +213,26 @@ contract MoonbeamSlpx is ISlpx {
         // xtokens call
         xcmTransferAsset(assetAddress, amount);
 
-        // Build bifrost xcm-action mint call data
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
+        bytes memory targetChain = abi.encodePacked(ASTAR_CHAIN, receiver);
         bytes memory callData = BuildCallData.buildMintCallBytes(
             _msgSender(),
             token,
             targetChain,
             remark
         );
-        // XCM Transact
+
+        // xcm transact
         FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
+        require(
+            XCM(XCM_ADDRESS).remote_transact(
+                BIFROST_PARA_ID,
+                false,
+                BNC_ADDRESS,
+                feeInfo.feeAmount,
+                callData,
+                feeInfo.transactRequiredWeightAtMost
+            ),
+            "Failed to send xcm"
         );
         emit Mint(
             _msgSender(),
@@ -269,11 +251,10 @@ contract MoonbeamSlpx is ISlpx {
     ) external payable override whenNotPaused {
         require(bytes(remark).length <= 32, "remark too long");
         bytes2 nativeToken = checkAssetIsExist(NATIVE_ASSET_ADDRESS);
-        // xtokens call
+
         xcmTransferNativeAsset(msg.value);
 
-        // Build bifrost xcm-action mint call data
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
+        bytes memory targetChain = abi.encodePacked(ASTAR_CHAIN, receiver);
         bytes memory callData = BuildCallData.buildMintWithChannelIdCallBytes(
             _msgSender(),
             nativeToken,
@@ -281,15 +262,19 @@ contract MoonbeamSlpx is ISlpx {
             remark,
             channel_id
         );
-        // XCM Transact
+
+        // xcm transact
         FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
+        require(
+            XCM(XCM_ADDRESS).remote_transact(
+                BIFROST_PARA_ID,
+                false,
+                BNC_ADDRESS,
+                feeInfo.feeAmount,
+                callData,
+                feeInfo.transactRequiredWeightAtMost
+            ),
+            "Failed to send xcm"
         );
         emit Mint(
             _msgSender(),
@@ -307,7 +292,7 @@ contract MoonbeamSlpx is ISlpx {
         address receiver,
         string memory remark,
         uint32 channel_id
-    ) external override whenNotPaused {
+    ) external override {
         require(bytes(remark).length <= 32, "remark too long");
 
         bytes2 token = checkAssetIsExist(assetAddress);
@@ -315,8 +300,7 @@ contract MoonbeamSlpx is ISlpx {
         // xtokens call
         xcmTransferAsset(assetAddress, amount);
 
-        // Build bifrost xcm-action mint call data
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
+        bytes memory targetChain = abi.encodePacked(ASTAR_CHAIN, receiver);
         bytes memory callData = BuildCallData.buildMintWithChannelIdCallBytes(
             _msgSender(),
             token,
@@ -324,15 +308,19 @@ contract MoonbeamSlpx is ISlpx {
             remark,
             channel_id
         );
-        // XCM Transact
+
+        // xcm transact
         FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
+        require(
+            XCM(XCM_ADDRESS).remote_transact(
+                BIFROST_PARA_ID,
+                false,
+                BNC_ADDRESS,
+                feeInfo.feeAmount,
+                callData,
+                feeInfo.transactRequiredWeightAtMost
+            ),
+            "Failed to send xcm"
         );
         emit Mint(
             _msgSender(),
@@ -351,42 +339,28 @@ contract MoonbeamSlpx is ISlpx {
     ) external override whenNotPaused {
         bytes2 vtoken = checkAssetIsExist(vAssetAddress);
 
-        // xtokens call
         xcmTransferAsset(vAssetAddress, amount);
 
-        // xcm transactor call
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
+        bytes memory targetChain = abi.encodePacked(ASTAR_CHAIN, receiver);
         bytes memory callData = BuildCallData.buildRedeemCallBytes(
             _msgSender(),
             vtoken,
             targetChain
         );
+        // xcm transact
         FeeInfo memory feeInfo = checkFeeInfo(Operation.Redeem);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
+        require(
+            XCM(XCM_ADDRESS).remote_transact(
+                BIFROST_PARA_ID,
+                false,
+                BNC_ADDRESS,
+                feeInfo.feeAmount,
+                callData,
+                feeInfo.transactRequiredWeightAtMost
+            ),
+            "Failed to send xcm"
         );
         emit Redeem(_msgSender(), vAssetAddress, amount, receiver, callData);
-    }
-
-    function getXtokensDestination(
-        bytes32 publicKey
-    ) internal view returns (Xtokens.Multilocation memory) {
-        bytes[] memory interior = new bytes[](2);
-        // Parachain: 2001/2030
-        interior[0] = bytes.concat(hex"00", bytes4(bifrostParaId));
-        // AccountId32: { id: public_key , network: any }
-        interior[1] = bytes.concat(hex"01", publicKey, hex"00");
-        Xtokens.Multilocation memory dest = Xtokens.Multilocation({
-            parents: 1,
-            interior: interior
-        });
-
-        return dest;
     }
 
     function setDestChainInfo(
@@ -405,15 +379,6 @@ contract MoonbeamSlpx is ISlpx {
         chainInfo.raw_chain_index = raw_chain_index;
     }
 
-    /**
-     * @dev Create order to mint vAsset or redeem vAsset on bifrost chain
-     * @param assetAddress The address of the asset to mint or redeem
-     * @param amount The amount of the asset to mint or redeem
-     * @param dest_chain_id When order is executed, Asset/vAsset will be transferred to this chain
-     * @param receiver The receiver address on the destination chain, 20 bytes for EVM, 32 bytes for Substrate
-     * @param remark The remark of the order, less than 32 bytes. For example, "OmniLS"
-     * @param channel_id The channel id of the order, you can set it. Bifrost chain will use it to share reward.
-     **/
     function create_order(
         address assetAddress,
         uint128 amount,
@@ -441,8 +406,6 @@ contract MoonbeamSlpx is ISlpx {
         }
 
         bytes2 token = checkAssetIsExist(assetAddress);
-
-        // Transfer asset to bifrost chain
         if (assetAddress == NATIVE_ASSET_ADDRESS) {
             amount = uint128(msg.value);
             xcmTransferNativeAsset(uint256(amount));
@@ -461,15 +424,18 @@ contract MoonbeamSlpx is ISlpx {
             remark,
             channel_id
         );
-        // XCM Transact
+        // xcm transact
         FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
+        require(
+            XCM(XCM_ADDRESS).remote_transact(
+                BIFROST_PARA_ID,
+                false,
+                BNC_ADDRESS,
+                feeInfo.feeAmount,
+                callData,
+                feeInfo.transactRequiredWeightAtMost
+            ),
+            "Failed to send xcm"
         );
         emit CreateOrder(
             assetAddress,
@@ -479,5 +445,21 @@ contract MoonbeamSlpx is ISlpx {
             remark,
             channel_id
         );
+    }
+
+    function getXtokensDestination(
+        bytes32 publicKey
+    ) internal pure returns (XCM_v2.Multilocation memory) {
+        bytes[] memory interior = new bytes[](2);
+        // Parachain: 2001/2030
+        interior[0] = bytes.concat(hex"00", bytes4(BIFROST_PARA_ID));
+        // AccountId32: { id: public_key , network: any }
+        interior[1] = bytes.concat(hex"01", publicKey, hex"00");
+        XCM_v2.Multilocation memory dest = XCM_v2.Multilocation({
+            parents: 1,
+            interior: interior
+        });
+
+        return dest;
     }
 }
