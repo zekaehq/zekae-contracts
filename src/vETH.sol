@@ -4,7 +4,8 @@ pragma solidity ^0.8.22;
 
 import {ERC20} from "src/ERC20.sol";
 
-contract LSToken is ERC20("LSToken", "LST", 18) {
+contract vETH is ERC20("vETH", "vETH", 18) {
+    
     address public owner;
 
     constructor(address _owner) {
@@ -22,5 +23,9 @@ contract LSToken is ERC20("LSToken", "LST", 18) {
 
     function burn(address from, uint256 amount) public onlyOwner {
         _burn(from, amount);
+    }
+
+    function setOwner(address _owner) public onlyOwner {
+        owner = _owner;
     }
 }
