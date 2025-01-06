@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity 0.8.10;
+pragma solidity ^0.8.28;
 
 library BuildCallData {
     uint8 public constant PALLET_INDEX = 125;

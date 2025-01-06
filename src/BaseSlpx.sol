@@ -1,16 +1,28 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.25;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
 
 import "src/SlpxContracts/interfaces/IVETH.sol";
 import "src/SlpxContracts/interfaces/snowbridge/IGateway.sol";
 import "src/SlpxContracts/interfaces/snowbridge/MultiAddress.sol";
 
-contract EthereumSlpx {
-    address constant gateway = 0x74bAA141B18D5D1eeF1591abf37167FbeCE23B72;
-    address constant slpcore = 0x74bAA141B18D5D1eeF1591abf37167FbeCE23B72;
-    address constant veth = 0x4Bc3263Eb5bb2Ef7Ad9aB6FB68be80E43b43801F;
-    uint128 constant destinationFee = 1000000;
-    uint32 constant paraId = 2030;
+contract BaseSlpx {
+    address public gateway;
+    address public slpcore;
+    address public veth;
+    uint128 public destinationFee;
+    uint32 public paraId;
+
+    constructor(address _gateway) {
+        gateway = _gateway;
+        slpcore = _slpcore;
+        veth = _veth;
+        destinationFee = _destinationFee;
+        paraId = _paraId;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            CORE LOGIC
+    //////////////////////////////////////////////////////////////*/
     function mint() external payable {
         uint256 fee = IGateway(gateway).quoteSendTokenFee(
             veth,
@@ -31,5 +43,33 @@ contract EthereumSlpx {
             destinationFee,
             uint128(vethAmount)
         );
+    }
+
+
+    /*//////////////////////////////////////////////////////////////
+                            SETTERS
+    //////////////////////////////////////////////////////////////*/
+    function setGateway(address _gateway) external {
+        gateway = _gateway;
+    }
+
+
+    function setSlpcore(address _slpcore) external {
+        slpcore = _slpcore;
+    }
+
+
+    function setVeth(address _veth) external {
+        veth = _veth;
+    }
+
+
+    function setDestinationFee(uint128 _destinationFee) external {
+        destinationFee = _destinationFee;
+    }
+
+
+    function setParaId(uint32 _paraId) external {
+        paraId = _paraId;
     }
 }
