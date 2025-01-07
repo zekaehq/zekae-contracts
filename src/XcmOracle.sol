@@ -1,18 +1,18 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
+import "@openzeppelin/contracts/access/Ownable.sol";
 pragma solidity ^0.8.28;
 
-contract XcmOracle {
+contract XcmOracle is Ownable {
 
     /*//////////////////////////////////////////////////////////////
                             ERRORS
     //////////////////////////////////////////////////////////////*/
 
-    error Unauthorized();
 
     /*//////////////////////////////////////////////////////////////
                             METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
-    address public owner;
 
     struct PoolInfo {
         uint256 assetAmount;
@@ -28,34 +28,14 @@ contract XcmOracle {
 
     RateInfo public rateInfo;
 
-    address public slxAddress;
-
-    address public sovereignAddress;
-
     mapping(bytes2 => PoolInfo) public tokenPool;
-
-    /*//////////////////////////////////////////////////////////////
-                            MODIFIERS
-    //////////////////////////////////////////////////////////////*/
-    modifier onlyOwner() {
-        if (msg.sender != owner) {
-            revert Unauthorized();
-        }
-        _;
-    }
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
     constructor(
-        address _SlxAddress,
-        address _SovereignAddress,
         address _owner
-    ) {
-        slxAddress = _SlxAddress;
-        sovereignAddress = _SovereignAddress;
-        owner = _owner;
-    }
+    ) Ownable(_owner) {}
 
     /*//////////////////////////////////////////////////////////////
                             CORE LOGIC
