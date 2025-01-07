@@ -8,7 +8,6 @@ import {Gateway} from "src/Gateway.sol";
 import {Test, console} from "forge-std/Test.sol";
 
 contract BaseSlpxTest is Test {
-
     BaseSlpx public baseSlpx;
     vETH public veth;
     Gateway public gateway;
@@ -20,7 +19,6 @@ contract BaseSlpxTest is Test {
     uint32 public paraId = 2030; // set at 2030
     uint128 public protocolFee = 1000000; // set at 1000000
 
-
     function setUp() public {
         veth = new vETH(OWNER);
         gateway = new Gateway(initialSendTokenFee, initialExchangeRate, OWNER);
@@ -31,32 +29,30 @@ contract BaseSlpxTest is Test {
         vm.stopPrank();
     }
 
-    function test_ownerVeth() public view {
+    function test_OwnerVeth() public view {
         assertEq(veth.owner(), address(baseSlpx));
     }
 
-    function test_ownerGateway() public view {
+    function test_OwnerGateway() public view {
         assertEq(gateway.owner(), OWNER);
     }
 
-    function test_ownerBaseSlpx() public view {
+    function test_OwnerBaseSlpx() public view {
         assertEq(baseSlpx.owner(), OWNER);
     }
 
-    function test_gatewayExchangeRate() public view {
+    function test_GatewayExchangeRate() public view {
         assertEq(gateway.quoteExchangeRate(address(veth), paraId, destinationFee), initialExchangeRate);
     }
 
-    function test_gatewaySendTokenFee() public view {
+    function test_GatewaySendTokenFee() public view {
         assertEq(gateway.quoteSendTokenFee(address(veth), paraId, destinationFee), initialSendTokenFee);
     }
 
-    function test_mint() public {
+    function test_Mint() public {
         vm.startPrank(USER);
         baseSlpx.mint{value: 14 ether}();
         vm.stopPrank();
         assertEq(veth.balanceOf(USER), 10_000_000_000_000_000_000);
     }
 }
-
-

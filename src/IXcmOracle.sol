@@ -4,12 +4,11 @@ pragma solidity ^0.8.28;
 /// @title IXcmOracle Interface
 /// @notice Interface for the XCM Oracle that handles cross-chain message verification
 interface IXcmOracle {
-
     struct PoolInfo {
         address token;
         uint256 balance;
-        // Add other necessary fields based on your requirements
     }
+    // Add other necessary fields based on your requirements
 
     struct RateInfo {
         uint8 mintRate;

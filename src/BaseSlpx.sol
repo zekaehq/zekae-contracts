@@ -13,8 +13,9 @@ contract BaseSlpx is Ownable {
     uint32 public paraId; // set at 2030
     uint256 public fee; // set at 1000000
 
-
-    constructor(address _gateway, address _veth, uint128 _destinationFee, uint128 _fee, uint32 _paraId, address _owner) Ownable(_owner) {
+    constructor(address _gateway, address _veth, uint128 _destinationFee, uint128 _fee, uint32 _paraId, address _owner)
+        Ownable(_owner)
+    {
         gateway = IGateway(_gateway);
         veth = vETH(_veth);
         destinationFee = _destinationFee;
@@ -31,7 +32,6 @@ contract BaseSlpx is Ownable {
         veth.mint(msg.sender, msg.value * 1e18 / exchangeRate);
     }
 
-
     /*//////////////////////////////////////////////////////////////
                             SETTERS
     //////////////////////////////////////////////////////////////*/
@@ -39,16 +39,13 @@ contract BaseSlpx is Ownable {
         gateway = IGateway(_gateway);
     }
 
-
     function setVeth(address _veth) external onlyOwner {
         veth = vETH(_veth);
     }
 
-
     function setDestinationFee(uint128 _destinationFee) external onlyOwner {
         destinationFee = _destinationFee;
     }
-
 
     function setParaId(uint32 _paraId) external onlyOwner {
         paraId = _paraId;
