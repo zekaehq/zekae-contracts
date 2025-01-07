@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.28;
 
 /// @title IXcmOracle Interface
 /// @notice Interface for the XCM Oracle that handles cross-chain message verification

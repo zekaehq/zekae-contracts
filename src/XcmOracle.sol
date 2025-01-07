@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.25;
-
-import "src/MoonbeamSlpx.sol";
+pragma solidity ^0.8.28;
 
 contract XcmOracle {
 
@@ -25,6 +23,8 @@ contract XcmOracle {
         uint8 mintRate;
         uint8 redeemRate;
     }
+
+    mapping(address => bytes2) public addressToCurrencyId;
 
     RateInfo public rateInfo;
 
@@ -50,7 +50,7 @@ contract XcmOracle {
     constructor(
         address _SlxAddress,
         address _SovereignAddress,
-        address _owner  
+        address _owner
     ) {
         slxAddress = _SlxAddress;
         sovereignAddress = _SovereignAddress;
@@ -58,31 +58,42 @@ contract XcmOracle {
     }
 
     /*//////////////////////////////////////////////////////////////
-                               ERC20 LOGIC
+                            CORE LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// Bifrost will set a fee and the data will be consistent with Bifrost Chain.
+    /// @notice Setting the rate for minting and redeeming.
+    /// @dev This function is used to set the rate for minting and redeeming.
+    /// @param _mintRate The mint rate.
+    /// @param _redeemRate The redeem rate.
     function setRate(uint8 _mintRate, uint8 _redeemRate) public onlyOwner {
         rateInfo.mintRate = _mintRate;
         rateInfo.redeemRate = _redeemRate;
     }
 
-    /// Setting up data with XCM.
+    /// @notice Setting up data with XCM.
+    /// @dev This function is used to set up data with XCM.
+    /// @param _currencyId The currencyId.
+    /// @param _assetAmount The asset amount.
+    /// @param _vAssetAmount The vAsset amount.
     function setTokenAmount(
         bytes2 _currencyId,
         uint256 _assetAmount,
         uint256 _vAssetAmount
-    ) public {
-        require(_msgSender() == sovereignAddress, "No permission");
+    ) public onlyOwner {
         PoolInfo storage poolInfo = tokenPool[_currencyId];
         poolInfo.assetAmount = _assetAmount;
         poolInfo.vAssetAmount = _vAssetAmount;
     }
 
+    /// @notice Get the vToken amount by the token amount.
+    /// @dev This function is used to get the vToken amount by the token amount.
+    /// @param _assetAddress The asset address.
+    /// @param _assetAmount The token amount.
+    /// @return The vToken amount.
     function getVTokenByToken(
         address _assetAddress,
         uint256 _assetAmount
-    ) public view whenNotPaused returns (uint256) {
+    ) public view returns (uint256) {
         bytes2 currencyId = getCurrencyIdByAssetAddress(_assetAddress);
         PoolInfo memory poolInfo = tokenPool[currencyId];
         require(
@@ -96,10 +107,15 @@ contract XcmOracle {
         return vAssetAmount;
     }
 
+    /// @notice Get the token amount by the vToken amount.
+    /// @dev This function is used to get the token amount by the vToken amount.
+    /// @param _assetAddress The asset address.
+    /// @param _vAssetAmount The vToken amount.
+    /// @return The token amount.
     function getTokenByVToken(
         address _assetAddress,
         uint256 _vAssetAmount
-    ) public view whenNotPaused returns (uint256) {
+    ) public view returns (uint256) {
         bytes2 currencyId = getCurrencyIdByAssetAddress(_assetAddress);
         PoolInfo memory poolInfo = tokenPool[currencyId];
         require(
@@ -113,12 +129,26 @@ contract XcmOracle {
         return assetAmount;
     }
 
+    /// @notice Get the currencyId by the asset address.
+    /// @dev This function is used to get the currencyId by the asset address.
+    /// @param _assetAddress The asset address.
+    /// @return The currencyId.
     function getCurrencyIdByAssetAddress(
         address _assetAddress
     ) public view returns (bytes2) {
-        (bytes2 currencyId, uint256 _d) = MoonbeamSlpx(slxAddress)
-            .addressToAssetInfo(_assetAddress);
+        bytes2 currencyId = addressToCurrencyId[_assetAddress];
         require(currencyId != 0x0000, "Not found");
         return currencyId;
+    }
+
+    /// @notice Set the currencyId by the asset address.
+    /// @dev This function is used to set the currencyId by the asset address.
+    /// @param _assetAddress The asset address.
+    /// @param _currencyId The currencyId.
+    function setAddressToCurrencyId(
+        address _assetAddress,
+        bytes2 _currencyId
+    ) public onlyOwner {
+        addressToCurrencyId[_assetAddress] = _currencyId;
     }
 }
