@@ -13,6 +13,8 @@ contract XcmOracleTest is Test {
     function setUp() public {
         xcmOracle = new XcmOracle(OWNER);
         vm.startPrank(OWNER);
+        xcmOracle.setRate(0, 10);
+        xcmOracle.setTokenAmount(bytes2(0x0001), 140000, 100000);
         xcmOracle.setAddressToCurrencyId(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, bytes2(0x0001));
         vm.stopPrank();
         vm.deal(USER, 1000 ether);
@@ -25,5 +27,15 @@ contract XcmOracleTest is Test {
     function test_CurrencyIdOfNativeEth() public view {
         bytes2 currencyId = xcmOracle.getCurrencyIdByAssetAddress(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
         assertEq(currencyId, bytes2(0x0001));
+    }
+
+    function test_GetVTokenByToken() public view {
+        uint256 vTokenAmount = xcmOracle.getVTokenByToken(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, 140);
+        assertEq(vTokenAmount, 100);
+    }
+
+    function test_GetTokenByVToken() public view {
+        uint256 tokenAmount = xcmOracle.getTokenByVToken(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, 100);
+        assertEq(tokenAmount, 140);
     }
 }
