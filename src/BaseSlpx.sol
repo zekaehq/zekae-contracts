@@ -8,16 +8,14 @@ import {IGateway} from "src/IGateway.sol";
 
 contract BaseSlpx is Ownable {
     IGateway public gateway;
-    address public slpcore;
     vETH public veth;
     uint128 public destinationFee;
     uint32 public paraId;
     uint256 public fee;
 
 
-    constructor(address _gateway, address _slpcore, address _veth, uint128 _destinationFee, uint32 _paraId, address _owner) Ownable(_owner) {
+    constructor(address _gateway, address _veth, uint128 _destinationFee, uint32 _paraId, address _owner) Ownable(_owner) {
         gateway = IGateway(_gateway);
-        slpcore = _slpcore;
         veth = vETH(_veth);
         destinationFee = _destinationFee;
         paraId = _paraId;
@@ -38,11 +36,6 @@ contract BaseSlpx is Ownable {
     //////////////////////////////////////////////////////////////*/
     function setGateway(address _gateway) external onlyOwner {
         gateway = IGateway(_gateway);
-    }
-
-
-    function setSlpcore(address _slpcore) external onlyOwner {
-        slpcore = _slpcore;
     }
 
 
