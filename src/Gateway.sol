@@ -34,7 +34,7 @@ contract Gateway is Ownable {
     }
 
     function quoteExchangeRate(address token, uint32 paraId, uint128 destinationFee) external view returns (uint256) {
-        require(token == address(0), "Invalid token address");
+        require(token != address(0), "Invalid token address");
         require(paraId > 0, "Invalid paraId");
         require(destinationFee > 0, "Invalid destination fee");
 

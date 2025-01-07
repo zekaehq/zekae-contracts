@@ -9,15 +9,16 @@ import {IGateway} from "src/IGateway.sol";
 contract BaseSlpx is Ownable {
     IGateway public gateway;
     vETH public veth;
-    uint128 public destinationFee;
-    uint32 public paraId;
-    uint256 public fee;
+    uint128 public destinationFee; // set at 1000000
+    uint32 public paraId; // set at 2030
+    uint256 public fee; // set at 1000000
 
 
-    constructor(address _gateway, address _veth, uint128 _destinationFee, uint32 _paraId, address _owner) Ownable(_owner) {
+    constructor(address _gateway, address _veth, uint128 _destinationFee, uint128 _fee, uint32 _paraId, address _owner) Ownable(_owner) {
         gateway = IGateway(_gateway);
         veth = vETH(_veth);
         destinationFee = _destinationFee;
+        fee = _fee;
         paraId = _paraId;
     }
 
@@ -27,7 +28,7 @@ contract BaseSlpx is Ownable {
     function mint() external payable {
         require(msg.value >= fee, "msg.value to low");
         uint256 exchangeRate = gateway.quoteExchangeRate(address(veth), paraId, destinationFee);
-        veth.mint(msg.sender, msg.value * exchangeRate);
+        veth.mint(msg.sender, msg.value * 1e18 / exchangeRate);
     }
 
 
