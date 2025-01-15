@@ -4,25 +4,46 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {vETH} from "src/vETH.sol";
-import {IGateway} from "src/IGateway.sol";
 import {IXcmOracle} from "src/IXcmOracle.sol";
-import {BaseSlpx} from "src/BaseSlpx.sol";
 
 
 contract YieldDelegationVault is Ownable {
-    IGateway public gateway;
+    IXcmOracle public ixcmOracle;
     vETH public veth;
-    uint128 public destinationFee; // set at 1000000
-    uint32 public paraId; // set at 2030
-    uint256 public fee; // set at 1000000
 
-    constructor(address _gateway, address _veth, uint128 _destinationFee, uint128 _fee, uint32 _paraId, address _owner)
-        Ownable(_owner)
-    {
-        gateway = IGateway(_gateway);
+    error InsufficientDeposit();
+
+    mapping(address => uint256) public addressToUnderlyingToken;
+
+    uint256 public ownerDelegatedDeposit;
+
+    constructor(address _ixcmOracle, address _veth, address _owner) Ownable(_owner) {
+        ixcmOracle = IXcmOracle(_ixcmOracle);
         veth = vETH(_veth);
-        destinationFee = _destinationFee;
-        fee = _fee;
-        paraId = _paraId;
+    }
+
+    function deposit(uint256 amount) external {
+        veth.transferFrom(msg.sender, address(this), amount);
+        uint256 amountOfUnderlyingToken = ixcmOracle.getTokenByVToken(address(veth), amount);
+        addressToUnderlyingToken[msg.sender] += amountOfUnderlyingToken;
+        ownerDelegatedDeposit += amount;
+    }
+
+    function withdraw(uint256 amount) external {
+        if (addressToUnderlyingToken[msg.sender] < amount) {
+            revert InsufficientDeposit();
+        }
+        uint256 amountOfUnderlyingToken = addressToUnderlyingToken[msg.sender];
+        uint256 amountOfVToken = ixcmOracle.getVTokenByToken(address(veth), amountOfUnderlyingToken);
+        addressToUnderlyingToken[msg.sender] = 0;
+        veth.transfer(msg.sender, amountOfVToken);
+    }
+
+    function ownerWithdraw(uint256 amount) external onlyOwner {
+        if (ownerDelegatedDeposit < amount) {
+            revert InsufficientDeposit();
+        }
+        ownerDelegatedDeposit -= amount;
+        veth.transfer(msg.sender, amount);
     }
 }
