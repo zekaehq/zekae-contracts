@@ -6,9 +6,12 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import {xcvDOT} from "src/xcvDOT.sol";
 import {xcvGLMR} from "src/xcvGLMR.sol";
 import {xcvASTR} from "src/xcvASTR.sol";
-import {IGateway} from "src/IGateway.sol";
+import {BifrostMock} from "src/BifrostMock.sol";
 
 contract MoonbeamSlpx is Ownable, Pausable {
+    /*//////////////////////////////////////////////////////////////
+                            CONSTANTS
+    //////////////////////////////////////////////////////////////*/
     address internal constant NATIVE_ASSET_ADDRESS = 0x0000000000000000000000000000000000000802;
     address internal constant XCM_TRANSACTORV2_ADDRESS = 0x000000000000000000000000000000000000080D;
     address internal constant XTOKENS = 0x0000000000000000000000000000000000000804;
@@ -17,6 +20,21 @@ contract MoonbeamSlpx is Ownable, Pausable {
     address public BNCAddress = 0xFFffffFf7cC06abdF7201b350A1265c62C8601d2; // set at 0xFFffffFf7cC06abdF7201b350A1265c62C8601d2
     uint32 public bifrostParaId = 2030; // set at 2030
 
+    BifrostMock bifrostMock;
+
+
+    /*//////////////////////////////////////////////////////////////
+                            EVENTS
+    //////////////////////////////////////////////////////////////*/
+    event CreateOrder(
+        address assetAddress,
+        uint128 amount,
+        uint64 dest_chain_id,
+        bytes receiver,
+        string remark,
+        uint32 channel_id
+    );
+
     /*//////////////////////////////////////////////////////////////
                             TEST LSTs
     //////////////////////////////////////////////////////////////*/
@@ -24,6 +42,9 @@ contract MoonbeamSlpx is Ownable, Pausable {
     xcvGLMR xcvglmr;
     xcvASTR xcvastr;
 
+    /*//////////////////////////////////////////////////////////////
+                            STRUCTS & ENUMS
+    //////////////////////////////////////////////////////////////*/
     enum Operation {
         Mint,
         Redeem,
@@ -42,22 +63,32 @@ contract MoonbeamSlpx is Ownable, Pausable {
         uint64 overallWeight;
     }
 
-    mapping(address => AssetInfo) public addressToAssetInfo;
-    mapping(Operation => FeeInfo) public operationToFeeInfo;
-
     struct DestChainInfo {
         bool is_evm;
         bool is_substrate;
         bytes1 raw_chain_index;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            MAPPINGS
+    //////////////////////////////////////////////////////////////*/
+    mapping(address => AssetInfo) public addressToAssetInfo;
+    mapping(Operation => FeeInfo) public operationToFeeInfo;
     mapping(uint64 => DestChainInfo) public destChainInfo;
 
-    constructor(address _xcvdot, address _xcvglmr, address _xcvastr, address _owner) Ownable(_owner) {
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+    constructor(address _xcvdot, address _xcvglmr, address _xcvastr, address _bifrostMock, address _owner) Ownable(_owner) {
         xcvdot = xcvDOT(_xcvdot);
         xcvglmr = xcvGLMR(_xcvglmr);
         xcvastr = xcvASTR(_xcvastr);
+        bifrostMock = BifrostMock(_bifrostMock);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            SUPPORT FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     function checkAssetIsExist(
         address assetAddress
     ) internal view returns (bytes2) {
@@ -106,196 +137,6 @@ contract MoonbeamSlpx is Ownable, Pausable {
         assetInfo.operationalMin = minimumValue;
     }
 
-
-    function mintVNativeAsset(
-        address receiver,
-        string memory remark
-    ) external payable override whenNotPaused {
-        require(bytes(remark).length <= 32, "remark too long");
-        bytes2 nativeToken = checkAssetIsExist(NATIVE_ASSET_ADDRESS);
-        // xtokens call
-        xcmTransferNativeAsset(msg.value);
-
-        // Build bifrost xcm-action mint call data
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
-        bytes memory callData = BuildCallData.buildMintCallBytes(
-            _msgSender(),
-            nativeToken,
-            targetChain,
-            remark
-        );
-        // XCM Transact
-        FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
-        );
-        emit Mint(
-            _msgSender(),
-            NATIVE_ASSET_ADDRESS,
-            msg.value,
-            receiver,
-            callData,
-            remark
-        );
-    }
-
-    function mintVAsset(
-        address assetAddress,
-        uint256 amount,
-        address receiver,
-        string memory remark
-    ) external override whenNotPaused {
-        require(bytes(remark).length <= 32, "remark too long");
-
-        bytes2 token = checkAssetIsExist(assetAddress);
-
-        // xtokens call
-        xcmTransferAsset(assetAddress, amount);
-
-        // Build bifrost xcm-action mint call data
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
-        bytes memory callData = BuildCallData.buildMintCallBytes(
-            _msgSender(),
-            token,
-            targetChain,
-            remark
-        );
-        // XCM Transact
-        FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
-        );
-        emit Mint(
-            _msgSender(),
-            assetAddress,
-            amount,
-            receiver,
-            callData,
-            remark
-        );
-    }
-
-    function mintVNativeAssetWithChannelId(
-        address receiver,
-        string memory remark,
-        uint32 channel_id
-    ) external payable override whenNotPaused {
-        require(bytes(remark).length <= 32, "remark too long");
-        bytes2 nativeToken = checkAssetIsExist(NATIVE_ASSET_ADDRESS);
-        // xtokens call
-        xcmTransferNativeAsset(msg.value);
-
-        // Build bifrost xcm-action mint call data
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
-        bytes memory callData = BuildCallData.buildMintWithChannelIdCallBytes(
-            _msgSender(),
-            nativeToken,
-            targetChain,
-            remark,
-            channel_id
-        );
-        // XCM Transact
-        FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
-        );
-        emit Mint(
-            _msgSender(),
-            NATIVE_ASSET_ADDRESS,
-            msg.value,
-            receiver,
-            callData,
-            remark
-        );
-    }
-
-    function mintVAssetWithChannelId(
-        address assetAddress,
-        uint256 amount,
-        address receiver,
-        string memory remark,
-        uint32 channel_id
-    ) external override whenNotPaused {
-        require(bytes(remark).length <= 32, "remark too long");
-
-        bytes2 token = checkAssetIsExist(assetAddress);
-
-        // xtokens call
-        xcmTransferAsset(assetAddress, amount);
-
-        // Build bifrost xcm-action mint call data
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
-        bytes memory callData = BuildCallData.buildMintWithChannelIdCallBytes(
-            _msgSender(),
-            token,
-            targetChain,
-            remark,
-            channel_id
-        );
-        // XCM Transact
-        FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
-        );
-        emit Mint(
-            _msgSender(),
-            assetAddress,
-            amount,
-            receiver,
-            callData,
-            remark
-        );
-    }
-
-    function redeemAsset(
-        address vAssetAddress,
-        uint256 amount,
-        address receiver
-    ) external override whenNotPaused {
-        bytes2 vtoken = checkAssetIsExist(vAssetAddress);
-
-        // xtokens call
-        xcmTransferAsset(vAssetAddress, amount);
-
-        // xcm transactor call
-        bytes memory targetChain = abi.encodePacked(MOONBEAM_CHAIN, receiver);
-        bytes memory callData = BuildCallData.buildRedeemCallBytes(
-            _msgSender(),
-            vtoken,
-            targetChain
-        );
-        FeeInfo memory feeInfo = checkFeeInfo(Operation.Redeem);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
-        );
-        emit Redeem(_msgSender(), vAssetAddress, amount, receiver, callData);
-    }
-
     function setDestChainInfo(
         uint64 dest_chain_id,
         bool is_evm,
@@ -311,6 +152,10 @@ contract MoonbeamSlpx is Ownable, Pausable {
         chainInfo.is_substrate = is_substrate;
         chainInfo.raw_chain_index = raw_chain_index;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            MAIN FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @dev Create order to mint vAsset or redeem vAsset on bifrost chain
@@ -328,14 +173,20 @@ contract MoonbeamSlpx is Ownable, Pausable {
         bytes memory receiver,
         string memory remark,
         uint32 channel_id
-    ) external payable override {
+    ) external payable {
+        // Check remark
         require(
             bytes(remark).length > 0 && bytes(remark).length <= 32,
             "remark must be less than 32 bytes and not empty"
         );
+
+        // Check amount
         require(amount > 0, "amount must be greater than 0");
 
+        // Load dest chain info
         DestChainInfo memory chainInfo = destChainInfo[dest_chain_id];
+
+        // Separate evm and substrate chain
         if (chainInfo.is_evm) {
             require(receiver.length == 20, "evm address must be 20 bytes");
         } else if (chainInfo.is_substrate) {
@@ -344,41 +195,41 @@ contract MoonbeamSlpx is Ownable, Pausable {
                 "substrate public key must be 32 bytes"
             );
         } else {
-            revert("Destination chain is not supported");
+            revert("Destination chain is not supported"); // revert if dest chain is not supported
         }
 
-        bytes2 token = checkAssetIsExist(assetAddress);
+        // Check asset - temporarily disable
+        // bytes2 token = checkAssetIsExist(assetAddress);
 
-        // Transfer asset to bifrost chain
+        // Transfer asset to bifrost mock
         if (assetAddress == NATIVE_ASSET_ADDRESS) {
-            amount = uint128(msg.value);
-            xcmTransferNativeAsset(uint256(amount));
-        } else {
-            xcmTransferAsset(assetAddress, uint256(amount));
+            (bool sent, ) = address(bifrostMock).call{value: msg.value}("");
+            require(sent, "Failed to send GLMR to Bifrost");
+        }
+        if (assetAddress == address(xcvdot)) {
+            xcvdot.transferFrom(_msgSender(), address(bifrostMock), amount);
+        }
+        if (assetAddress == address(xcvglmr)) {
+            xcvglmr.transferFrom(_msgSender(), address(bifrostMock), amount);
+        }
+        if (assetAddress == address(xcvastr)) {
+            xcvastr.transferFrom(_msgSender(), address(bifrostMock), amount);
         }
 
-        // Build bifrost slpx create order call data
-        bytes memory callData = BuildCallData.buildCreateOrderCallBytes(
-            _msgSender(),
-            block.chainid,
-            block.number,
-            token,
-            amount,
-            abi.encodePacked(chainInfo.raw_chain_index, receiver),
-            remark,
-            channel_id
-        );
-        // XCM Transact
-        FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        // XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-        //     xcmTransactorDestination,
-        //     BNCAddress,
-        //     feeInfo.transactRequiredWeightAtMost,
-        //     callData,
-        //     feeInfo.feeAmount,
-        //     feeInfo.overallWeight
-        // );
-        vdot.mint(_msgSender(), amount);
+        // Check for fee info - temporarily disable
+        // FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint); 
+
+        // Mint vAsset
+        if (assetAddress == address(xcvdot)) {
+            xcvdot.mint(_msgSender(), amount);
+        } else if (assetAddress == address(xcvglmr)) {
+            xcvglmr.mint(_msgSender(), amount);
+        } else if (assetAddress == address(xcvastr)) {
+            xcvastr.mint(_msgSender(), amount);
+        } else {
+            revert("Asset is not supported");
+        }
+
         emit CreateOrder(
             assetAddress,
             amount,
