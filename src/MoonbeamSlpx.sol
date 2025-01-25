@@ -3,7 +3,9 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import {vETH} from "src/vETH.sol";
+import {xcvDOT} from "src/xcvDOT.sol";
+import {xcvGLMR} from "src/xcvGLMR.sol";
+import {xcvASTR} from "src/xcvASTR.sol";
 import {IGateway} from "src/IGateway.sol";
 
 contract MoonbeamSlpx is Ownable, Pausable {
@@ -12,8 +14,15 @@ contract MoonbeamSlpx is Ownable, Pausable {
     address internal constant XTOKENS = 0x0000000000000000000000000000000000000804;
     bytes1 internal constant MOONBEAM_CHAIN = 0x01;
 
-    address public BNCAddress;
-    uint32 public bifrostParaId;
+    address public BNCAddress = 0xFFffffFf7cC06abdF7201b350A1265c62C8601d2; // set at 0xFFffffFf7cC06abdF7201b350A1265c62C8601d2
+    uint32 public bifrostParaId = 2030; // set at 2030
+
+    /*//////////////////////////////////////////////////////////////
+                            TEST LSTs
+    //////////////////////////////////////////////////////////////*/
+    xcvDOT xcvdot;
+    xcvGLMR xcvglmr;
+    xcvASTR xcvastr;
 
     enum Operation {
         Mint,
@@ -43,7 +52,11 @@ contract MoonbeamSlpx is Ownable, Pausable {
     }
     mapping(uint64 => DestChainInfo) public destChainInfo;
 
-    constructor(address _owner) Ownable(_owner) {}
+    constructor(address _xcvdot, address _xcvglmr, address _xcvastr, address _owner) Ownable(_owner) {
+        xcvdot = xcvDOT(_xcvdot);
+        xcvglmr = xcvGLMR(_xcvglmr);
+        xcvastr = xcvASTR(_xcvastr);
+    }
 
     function checkAssetIsExist(
         address assetAddress
@@ -93,49 +106,8 @@ contract MoonbeamSlpx is Ownable, Pausable {
         assetInfo.operationalMin = minimumValue;
     }
 
-    function xcmTransferAsset(address assetAddress, uint256 amount) internal {
-        require(assetAddress != address(0), "Invalid assetAddress");
-        require(
-            amount >= addressToAssetInfo[assetAddress].operationalMin,
-            "Less than MinimumValue"
-        );
-        bytes32 publicKey = AddressToAccount.AddressToSubstrateAccount(
-            _msgSender()
-        );
-        Xtokens.Multilocation memory dest_account = getXtokensDestination(
-            publicKey
-        );
-        IERC20 asset = IERC20(assetAddress);
-        asset.transferFrom(_msgSender(), address(this), amount);
-        Xtokens(XTOKENS).transfer(
-            assetAddress,
-            amount,
-            dest_account,
-            type(uint64).max
-        );
-    }
 
-    function xcmTransferNativeAsset(uint256 amount) internal {
-        require(
-            amount >= addressToAssetInfo[NATIVE_ASSET_ADDRESS].operationalMin,
-            "Less than MinimumValue"
-        );
-        bytes32 publicKey = AddressToAccount.AddressToSubstrateAccount(
-            _msgSender()
-        );
-
-        Xtokens.Multilocation memory dest_account = getXtokensDestination(
-            publicKey
-        );
-        Xtokens(XTOKENS).transfer(
-            NATIVE_ASSET_ADDRESS,
-            amount,
-            dest_account,
-            type(uint64).max
-        );
-    }
-
-        function mintVNativeAsset(
+    function mintVNativeAsset(
         address receiver,
         string memory remark
     ) external payable override whenNotPaused {
@@ -324,22 +296,6 @@ contract MoonbeamSlpx is Ownable, Pausable {
         emit Redeem(_msgSender(), vAssetAddress, amount, receiver, callData);
     }
 
-    function getXtokensDestination(
-        bytes32 publicKey
-    ) internal view returns (Xtokens.Multilocation memory) {
-        bytes[] memory interior = new bytes[](2);
-        // Parachain: 2001/2030
-        interior[0] = bytes.concat(hex"00", bytes4(bifrostParaId));
-        // AccountId32: { id: public_key , network: any }
-        interior[1] = bytes.concat(hex"01", publicKey, hex"00");
-        Xtokens.Multilocation memory dest = Xtokens.Multilocation({
-            parents: 1,
-            interior: interior
-        });
-
-        return dest;
-    }
-
     function setDestChainInfo(
         uint64 dest_chain_id,
         bool is_evm,
@@ -414,14 +370,15 @@ contract MoonbeamSlpx is Ownable, Pausable {
         );
         // XCM Transact
         FeeInfo memory feeInfo = checkFeeInfo(Operation.Mint);
-        XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
-            xcmTransactorDestination,
-            BNCAddress,
-            feeInfo.transactRequiredWeightAtMost,
-            callData,
-            feeInfo.feeAmount,
-            feeInfo.overallWeight
-        );
+        // XcmTransactorV2(XCM_TRANSACTORV2_ADDRESS).transactThroughSigned(
+        //     xcmTransactorDestination,
+        //     BNCAddress,
+        //     feeInfo.transactRequiredWeightAtMost,
+        //     callData,
+        //     feeInfo.feeAmount,
+        //     feeInfo.overallWeight
+        // );
+        vdot.mint(_msgSender(), amount);
         emit CreateOrder(
             assetAddress,
             amount,

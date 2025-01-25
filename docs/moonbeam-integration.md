@@ -77,7 +77,7 @@ Or manual input with the information below
 | Source code | [MoonbeamSlpx.sol](https://github.com/bifrost-io/slpx-contracts/blob/main/contracts/MoonbeamSlpx.sol) |
 | ABI | [MoonbeamSlpx.json](https://github.com/bifrost-io/slpx-contracts/blob/main/deployments/moonbeam/MoonbeamSlpx.json) |
 
-## Integration
+## Mainnet Integration
 
 MoonbeamSLPx contract does not support atomic contract calls. That means you can't integrate within your contract logic. The reason are as follows:
 - there is a wait time of about 45 to 60 to receive the `vAsset` token.
@@ -252,3 +252,6 @@ const { isLoading: isConfirming, isSuccess: isConfirmed } =
     hash, 
 })
 ```
+
+## Testnet integration
+
