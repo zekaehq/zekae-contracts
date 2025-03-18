@@ -43,6 +43,13 @@ contract MoonbeamSlpx is Ownable, Pausable {
     xcvASTR xcvastr;
 
     /*//////////////////////////////////////////////////////////////
+                            TOKENS
+    //////////////////////////////////////////////////////////////*/
+    IERC20 glmr;
+    IERC20 xcdot;
+    IERC20 xcastr;
+
+    /*//////////////////////////////////////////////////////////////
                             STRUCTS & ENUMS
     //////////////////////////////////////////////////////////////*/
     enum Operation {
@@ -79,11 +86,13 @@ contract MoonbeamSlpx is Ownable, Pausable {
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
-    constructor(address _xcvdot, address _xcvglmr, address _xcvastr, address _bifrostMock, address _owner) Ownable(_owner) {
+    constructor(address _glmr, address _xcdot, address _xcastr, address _xcvdot, address _xcvglmr, address _xcvastr, address _owner) Ownable(_owner) {
+        glmr = IERC20(_glmr);
+        xcdot = IERC20(_xcdot);
+        xcastr = IERC20(_xcastr);
         xcvdot = xcvDOT(_xcvdot);
         xcvglmr = xcvGLMR(_xcvglmr);
         xcvastr = xcvASTR(_xcvastr);
-        bifrostMock = BifrostMock(_bifrostMock);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -207,13 +216,13 @@ contract MoonbeamSlpx is Ownable, Pausable {
             require(sent, "Failed to send GLMR to Bifrost");
         }
         if (assetAddress == address(xcvdot)) {
-            xcvdot.transferFrom(_msgSender(), address(bifrostMock), amount);
+            xcvdot.transferFrom(_msgSender(), address(this), amount);
         }
         if (assetAddress == address(xcvglmr)) {
-            xcvglmr.transferFrom(_msgSender(), address(bifrostMock), amount);
+            xcvglmr.transferFrom(_msgSender(), address(this), amount);
         }
         if (assetAddress == address(xcvastr)) {
-            xcvastr.transferFrom(_msgSender(), address(bifrostMock), amount);
+            xcvastr.transferFrom(_msgSender(), address(this), amount);
         }
 
         // Check for fee info - temporarily disable

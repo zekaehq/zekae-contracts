@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 contract BifrostMock {
-    function deposit(address to, uint256 amount) external payable {
+    function xcmTransferNativeAsset(uint256 amount) external payable {
         // TODO: implement deposit logic
     }
 
