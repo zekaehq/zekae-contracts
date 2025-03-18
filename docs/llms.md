@@ -150,3 +150,151 @@ Proactive Node Switching: In the event of a slashing risk, Bifrost can immediate
 vToken Vault: Bifrost has established an insurance pool called the vToken Vault, allocating 5% of the protocol's income to it. If slashing occurs, this pool compensates users for their losses. If no slashing occurs, the amount in the vToken Vault accumulates over time. The more funds accumulated, the stronger the compensation capability.
 
 For a more detailed explanation of how Bifrost distributes, mitigates, and compensates for slashing risks, refer to [How Bifrost provides an insurance mechanism for vToken holders against the Slash risk.](https://bifrost.io/blog/how-bifrost-provides-an-insurance-mechanism-for-v-token-holders-against-the-slash-risk)
+
+## FAQ - Frequently Asked Questions
+
+Our FAQ aims to answer every basic question we've been asked on Bifrost/Omni LS and vTokens. You can find our most detailed FAQ in our Bifrost Lab support.
+
+**Liquid Staking, rewards issue method and "Peg"**
+
+
+## Build with SLPx
+
+SLPx: The Developer Toolkit
+Introduction to SLPx
+SLPx is an extension module developed based on SLP, serving as a developer toolkit that enables the minting of vTokens on any chain. The goal is to simplify the integration of vTokens for more DeFi applications.
+
+For developers, integrating SLPx involves only a few lines of code. Once integrated, developers can use remote calls to access minting, redemption, and swap services for vTokens on the Bifrost-Polkadot chain.
+
+“Bifrost SLPx streamlined the complex process of bridging funds to destination chain, allowing users to liquid stake on any chain without leaving UI to interact with bridges.”
+
+We call it:
+
+SLPx Chain Abstraction
+The core principle behind the model is simple: Users don't need to navigate the complexities of path-finding, cross-chain bridging, switching chains, and paying gas fees for interchain transactions. They only need to interact with the SLPx contract on their source chain to delegate these operations to be completed on their behalf.
+
+How does it works?
+SLPx mainly consists of two parts:
+
+SLPx Contract: deployed on user’s source chain, receive user’s request and teleport to Bifrost.
+
+SLPx Module: deployed on Bifrost chain, receive the request from SLPx Contract and call to stake.
+
+SLPx has three core steps to wrap up “Stake with Bifrost” between Bifrost chain and user’s source chain (assume a EVM chain):
+
+User initiate a request on a source chain: The token is sent to a Bifrost chain account for asset transfer and processing. Each EVM address corresponds to a Substrate account. For conversion details, see the [Frontier Account Mapping Rules](https://github.com/polkadot-evm/frontier/blob/master/frame/evm/src/lib.rs#L669).
+
+Execute the Bifrost SLPx module remotely. The EVM user's address (msg.sender) is embedded in the calldata for the remote execution. This allows the Bifrost chain to identify the calling EVM user when the module is executed.
+
+After the Bifrost SLPx module logic is processed, the LST will be sent to user on source chain.
+
+XCM Oracle
+What is Bifrost XCM Oracle?
+In order to facilitate easy querying of Bifrost vToken Exchange Price on other chains at the Pallet and Contract levels, a scheduled price feed task sent by Bifrost SLPx Pallet is needed. Hence, Bifrost Runtime will automatically send XCM messages to the SLPx Contract of the target chain to update the Exchange Price of vTokens in the Contract.
+
+- [SLPx XCM Oracle Tech Doc](https://github.com/bifrost-finance/slpx-contracts?tab=readme-ov-file#xcmoracle)
+- How is [vToken Exchange Price calculated](https://docs.bifrost.io/faq/what-are-vtokens/vdot#dot-reward) and [verified in the Bifrost parachain](https://docs.bifrost.io/resources/audit-report#bifrost-security-evaluation)?
+- [What is SLPx?](https://docs.bifrost.io/for-builders/build-with-slpx/overview)
+- [What is XCM?](https://wiki.polkadot.network/docs/learn-xcm)
+
+vToken APIs
+There are three ways to query vToken exchange price:
+
+1. Use the Bifrost Runtime API, which is the most up-to-date and accurate method.
+2. Call EVM contract on Moonbeam.
+3. API for Frontend (with more vToken related storages)
+
+Bifrost Runtime API (Get vToken Exchange Rate)
+
+[Polkadot JS](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fbifrost-polkadot-rpc.dwellir.com#/runtime)
+
+`vtokenMintingRuntimeApi`
+
+1. `getCurrencyAmountByVCurrencyAmount`
+2. `getVCurrencyAmountByCurrencyAmount`
+
+
+EVM contract on Moonbeam
+Query the exchange rate from SLPx contract on Moonbeam:
+
+https://github.com/bifrost-io/slpx-contracts?tab=readme-ov-file#xcmoracle
+
+Check more details at here.
+
+API for Frontend
+exchangeRatio is to get Token by vToken
+
+Api 1: Includes the following queryable interfaces
+
+```json
+{
+   "contractAddress": "",
+   "symbol": "vDOT",
+   "slug": "voucher-dot",
+   "baseSlug": "polkadot",
+   "unstakingTime": 2592000,
+   "users": 4455,
+   "apr": 15.34,
+   "fee": 10,
+   "price": 15.0575651785682,
+   "exchangeRatio": 1.43132748845706,
+   "supply": 7072122.86098662
+},
+```
+
+Api 2: Includes the following queryable interfaces
+
+```json
+{
+  "tvl": 128783099,
+  "addresses": 89168,
+  "revenue": 3886150,
+    "vDOT": {
+    "apy": "15.34",
+    "apyBase": "15.17",
+    "apyReward": "0.17",
+    "tvl": 74398732.4975793,
+    "tvm": 7072122.86098662,
+    "totalIssuance": 4940953.70767365,
+    "holders": 4455,
+    "holdersList": [
+      {
+        "name": "vDOT",
+        "holders": 2551,
+        "unique_id": "asset_registry/9658598ef1eace56a0662d4a067a260e42b36f2a",
+        "network": "bifrost",
+        "url": "<https://bifrost.subscan.io/custom_token?unique_id=asset_registry/9658598ef1eace56a0662d4a067a260e42b36f2a>"
+      },
+      {
+        "name": "vDOT",
+        "holders": 389,
+        "unique_id": "standard_assets/29085784439601774464560083082574142143",
+        "network": "moonbeam",
+        "url": "<https://moonbeam.subscan.io/assets/29085784439601774464560083082574142143>"
+      },
+      {
+        "name": "vDOT",
+        "holders": 223,
+        "unique_id": "standard_assets/18446744073709551624",
+        "network": "astar",
+        "url": "<https://astar.subscan.io/assets/18446744073709551624>"
+      },
+      {
+        "name": "vDOT",
+        "holders": 9,
+        "unique_id": "standard_assets/313524628741076911470961827389955394913",
+        "network": "polkadex",
+        "url": "<https://polkadex.subscan.io/assets/313524628741076911470961827389955394913>"
+      },
+      {
+        "name": "vDOT",
+        "holders": 1283,
+        "unique_id": "asset_registry/37444e63907d968b4a4947cb38ce9c019e6b6310",
+        "network": "hydration",
+        "url": "<https://hydration.subscan.io/custom_token?unique_id=asset_registry/37444e63907d968b4a4947cb38ce9c019e6b6310>"
+      }
+    ]
+  },
+}
+```
+
