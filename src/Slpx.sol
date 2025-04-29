@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import {vTOKEN} from "src/vTOKEN.sol";
-import {IGateway} from "src/IGateway.sol";
+import {vTOKEN} from "src/L2Slpx/vTOKEN.sol";
+import {IVToken} from "src/L2Slpx/IVToken.sol";
 
 contract Slpx is Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -31,6 +30,33 @@ contract Slpx is Ownable {
                             TOKENS
     //////////////////////////////////////////////////////////////*/
     vTOKEN public vtoken;
+
+        /*//////////////////////////////////////////////////////////////
+                            STRUCTS & ENUMS
+    //////////////////////////////////////////////////////////////*/
+    enum Operation {
+        Mint,
+        Redeem,
+        ZenlinkSwap,
+        StableSwap
+    }
+
+    struct AssetInfo {
+        bytes2 currencyId;
+        uint256 operationalMin;
+    }
+
+    struct FeeInfo {
+        uint64 transactRequiredWeightAtMost;
+        uint256 feeAmount;
+        uint64 overallWeight;
+    }
+
+    struct DestChainInfo {
+        bool is_evm;
+        bool is_substrate;
+        bytes1 raw_chain_index;
+    }
 
 
     /*//////////////////////////////////////////////////////////////
@@ -69,6 +95,10 @@ contract Slpx is Ownable {
     /*//////////////////////////////////////////////////////////////
                             SETTERS
     //////////////////////////////////////////////////////////////*/
+    
+    /// @notice Predicts the address of a deployed contract
+    /// @dev 
+    /// @param _gateway The deployer account that will call deploy()
     function setGateway(address _gateway) external onlyOwner {
         gateway = IGateway(_gateway);
     }
