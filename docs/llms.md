@@ -233,7 +233,6 @@ Lock vBNC and receive bbBNC. The bbBNC value is proportional to the amount and d
 
 BNC -> vBNC -> bbBNC
 
-
 > The bbBNC value is a key indicator for participating in dividends. Simply put, the higher the proportion of bbBNC value in the overall, the more you might get in various bbBNC holdings benefits.
 
 > Your bbBNC value will decrease over time and will reach zero once the lock duration ends. At this point, your staked vBNC will be unlocked.
