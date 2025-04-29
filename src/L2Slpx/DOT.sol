@@ -7,8 +7,8 @@ import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract xcvGLMR is ERC20, ERC20Burnable, Ownable, ERC20Permit {
-    constructor(address initialOwner) ERC20("xcvGLMR", "xcvGLMR") Ownable(initialOwner) ERC20Permit("xcvGLMR") {}
+contract DOT is ERC20, ERC20Burnable, Ownable, ERC20Permit {
+    constructor(address initialOwner) ERC20("DOT", "DOT") Ownable(initialOwner) ERC20Permit("DOT") {}
 
     function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);

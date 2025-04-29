@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.28;
 
-import {BaseSlpx} from "src/BaseSlpx.sol";
-import {vETH} from "src/vETH.sol";
-import {Gateway} from "src/Gateway.sol";
+import {BaseSlpx} from "src/L2Slpx/BaseSlpx.sol";
+import {vETH} from "src/L2Slpx/vETH.sol";
+import {Gateway} from "src/L2Slpx/Gateway.sol";
 import {Test, console} from "forge-std/Test.sol";
 
 contract BaseSlpxTest is Test {

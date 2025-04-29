@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {IVToken} from "src/L2Slpx/IVToken.sol";
 
-contract Slpx is Ownable {
+contract L2Slpx is Ownable {
     /*//////////////////////////////////////////////////////////////
                             ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -38,7 +38,7 @@ contract Slpx is Ownable {
         Operation operation;
         uint256 minOrderAmount;
         uint256 tokenConversionRate;
-        uint256 tokenFee;
+        uint256 orderFee; // 1e18 = 100%, 1e16 = 1%, 1e15 = 0.1%
         address vTokenAddress;
     }
 
@@ -58,19 +58,23 @@ contract Slpx is Ownable {
                             CORE LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Create an order
+    /// @param tokenAddress The address of the token
+    /// @param amount The amount of the order
+    /// @param operation The operation of the order
+    /// @param remark The remark of the order
     function createOrder(address tokenAddress, uint256 amount, Operation operation, string memory remark)
-        external
+        public
         payable
     {
         // Checks
         if (!checkSupportToken(tokenAddress)) revert InvalidTokenAddress();
         if (amount < addressToTokenConversionInfo[tokenAddress].minOrderAmount) revert InvalidOrderAmount();
-        if (amount < addressToTokenConversionInfo[tokenAddress].tokenFee) revert InvalidOrderAmount();
         if (operation != addressToTokenConversionInfo[tokenAddress].operation) revert InvalidOperation();
+        
         if (tokenAddress == address(0)) {
             // Handle native ETH
             if (msg.value < amount) revert InsufficientBalance();
-            if (msg.value < addressToTokenConversionInfo[tokenAddress].tokenFee) revert InsufficientBalance();
         } else {
             if (IVToken(tokenAddress).balanceOf(msg.sender) < amount) revert InsufficientBalance();
             if (IVToken(tokenAddress).allowance(msg.sender, address(this)) < amount) revert InsufficientApproval();
@@ -80,22 +84,33 @@ contract Slpx is Ownable {
         if (operation == Operation.Mint) {
             if (tokenAddress == address(0)) {
                 // Native ETH comes with the msg.value
-                IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).mint(msg.sender, amount);
+                uint256 fee = (msg.value * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
+                uint256 amountAfterFee = msg.value - fee;
+                uint256 vTokenAmount = amountAfterFee * addressToTokenConversionInfo[tokenAddress].tokenConversionRate / 1e18;
+                IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).mint(msg.sender, vTokenAmount);
             } else {
+                uint256 fee = (amount * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
+                uint256 amountAfterFee = amount - fee;
                 IVToken(tokenAddress).transferFrom(msg.sender, address(this), amount);
-                IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).mint(msg.sender, amount);
+                uint256 vTokenAmount = amountAfterFee * addressToTokenConversionInfo[tokenAddress].tokenConversionRate / 1e18;
+                IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).mint(msg.sender, vTokenAmount);
             }
         }
 
         if (operation == Operation.Redeem) {
             if (tokenAddress == address(0)) {
-                // Native ETH comes with the msg.value
+                uint256 fee = (amount * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
+                uint256 amountAfterFee = amount - fee;
+                uint256 tokenAmount = (amountAfterFee * 1e18) / addressToTokenConversionInfo[tokenAddress].tokenConversionRate;
                 IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).burn(amount);
-                (bool success, ) = msg.sender.call{value: amount}("");
+                (bool success, ) = msg.sender.call{value: tokenAmount}("");
                 if (!success) revert ETHTransferFailed();
             } else {
+                uint256 fee = (amount * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
+                uint256 amountAfterFee = amount - fee;
+                uint256 tokenAmount = (amountAfterFee * 1e18) / addressToTokenConversionInfo[tokenAddress].tokenConversionRate;
                 IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).burn(amount);
-                IVToken(tokenAddress).transfer(msg.sender, amount);
+                IVToken(tokenAddress).transfer(msg.sender, tokenAmount);
             }
         }
 
@@ -111,17 +126,29 @@ contract Slpx is Ownable {
         Operation operation,
         uint256 minOrderAmount,
         uint256 tokenConversionRate,
-        uint256 tokenFee,
+        uint256 orderFee,  // 1e18 = 100%, 1e16 = 1%, 1e15 = 0.1%
         address vTokenAddress
     ) public onlyOwner {
         if (minOrderAmount <= 0) revert InvalidMinOrderAmount();
         if (tokenConversionRate <= 0) revert InvalidTokenConversionRate();
-        if (tokenFee < 0) revert InvalidTokenFee();
+        if (orderFee > 1e18) revert InvalidTokenFee();  // Cannot be more than 100%
         if (operation != Operation.Mint && operation != Operation.Redeem) revert InvalidOperation();
         if (vTokenAddress == address(0)) revert InvalidVTokenAddress();
-        addressToTokenConversionInfo[tokenAddress] =
-            TokenConversionInfo(operation, minOrderAmount, tokenConversionRate, tokenFee, vTokenAddress);
+        addressToTokenConversionInfo[tokenAddress] = TokenConversionInfo(operation, minOrderAmount, tokenConversionRate, orderFee, vTokenAddress);
     }
+
+    function removeTokenConversionInfo(address tokenAddress) external onlyOwner {
+        delete addressToTokenConversionInfo[tokenAddress];
+    }
+
+    function withdrawFees(address tokenAddress) external onlyOwner {
+    if (tokenAddress == address(0)) {
+        (bool success, ) = owner().call{value: address(this).balance}("");
+        if (!success) revert ETHTransferFailed();
+    } else {
+        IVToken(tokenAddress).transfer(owner(), IVToken(tokenAddress).balanceOf(address(this)));
+    }
+}
 
     /*//////////////////////////////////////////////////////////////
                             SUPPORT FUNCTIONS
@@ -132,7 +159,7 @@ contract Slpx is Ownable {
     function checkSupportToken(address tokenAddress) public view returns (bool) {
         TokenConversionInfo memory tokenConversionInfo = addressToTokenConversionInfo[tokenAddress];
         return tokenConversionInfo.minOrderAmount > 0 && tokenConversionInfo.tokenConversionRate > 0
-            && tokenConversionInfo.tokenFee >= 0;
+            && tokenConversionInfo.orderFee <= 1e18;  // Cannot be more than 100%
     }
 
     /// @notice Get the token conversion info
