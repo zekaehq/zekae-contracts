@@ -32,7 +32,7 @@ contract L2SlpxTest is Test {
         vm.stopPrank();
         vm.startPrank(OWNER);
         l2Slpx.setTokenConversionInfo(address(0), L2Slpx.Operation.Mint, 0.001 ether, 0.8e18, 0.01e18, address(veth));
-        l2Slpx.setTokenConversionInfo(address(vdot), L2Slpx.Operation.Mint, 1 ether, 0.65e18, 0.01e18, address(vdot));
+        l2Slpx.setTokenConversionInfo(address(dot), L2Slpx.Operation.Mint, 1 ether, 0.7e18, 0.01e18, address(vdot));
         vm.stopPrank();
     }
 
@@ -41,5 +41,13 @@ contract L2SlpxTest is Test {
         l2Slpx.createOrder{value: 1 ether}(address(0), 1 ether, L2Slpx.Operation.Mint, "meme");
         vm.stopPrank();
         assertEq(veth.balanceOf(USER), 0.792e18);
+    }
+
+    function test_createOrderERC20() public {
+        vm.startPrank(USER);
+        dot.approve(address(l2Slpx), 10e18);
+        l2Slpx.createOrder(address(dot), 10e18, L2Slpx.Operation.Mint, "meme");
+        vm.stopPrank();
+        assertEq(vdot.balanceOf(USER), 6.93e18);
     }
 }                   
