@@ -50,4 +50,31 @@ contract L2SlpxTest is Test {
         vm.stopPrank();
         assertEq(vdot.balanceOf(USER), 6.93e18);
     }
+
+    function test_checkSupportToken() public view {
+        assertTrue(l2Slpx.checkSupportToken(address(0)));
+        assertTrue(l2Slpx.checkSupportToken(address(dot)));
+    }
+
+    function test_getTokenConversionInfoETH() public view {
+        L2Slpx.TokenConversionInfo memory tokenConversionInfo = l2Slpx.getTokenConversionInfo(address(0));
+        assertEq(tokenConversionInfo.minOrderAmount, 0.001 ether);
+        assertEq(tokenConversionInfo.tokenConversionRate, 0.8e18);
+        assertEq(tokenConversionInfo.orderFee, 0.01e18);
+    }
+
+    function test_getTokenConversionInfoERC20() public view {
+        L2Slpx.TokenConversionInfo memory tokenConversionInfo = l2Slpx.getTokenConversionInfo(address(dot));
+        assertEq(tokenConversionInfo.minOrderAmount, 1 ether);
+        assertEq(tokenConversionInfo.tokenConversionRate, 0.7e18);
+        assertEq(tokenConversionInfo.orderFee, 0.01e18);
+    }
+
+    function test_removeTokenConversionInfo() public {
+        vm.startPrank(OWNER);
+        l2Slpx.removeTokenConversionInfo(address(0));
+        vm.stopPrank();
+        L2Slpx.TokenConversionInfo memory tokenConversionInfo = l2Slpx.getTokenConversionInfo(address(0));
+        assertEq(tokenConversionInfo.minOrderAmount, 0);
+    }
 }                   
