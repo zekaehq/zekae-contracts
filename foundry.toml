@@ -9,3 +9,12 @@ forge-std = "1.9.5"
 solmate = "6.8.0"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"
+base-sepolia = "${BASE_SEPOLIA_RPC_URL}"
+arbitrum-sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
+
+[etherscan]
+sepolia = { key = "${SEPOLIA_ETHERSCAN_API_KEY}" }
+base-sepolia = { key = "${BASE_SEPOLIA_ETHERSCAN_API_KEY}" }
+arbitrum-sepolia = { key = "${ARBITRUM_SEPOLIA_ETHERSCAN_API_KEY}" }
