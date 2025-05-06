@@ -26,6 +26,7 @@ contract L2Slpx is Ownable {
     //////////////////////////////////////////////////////////////*/
     event CreateOrder(address tokenAddress, Operation operation, uint256 amount, string remark);
 
+
     /*//////////////////////////////////////////////////////////////
                             STRUCTS & ENUMS
     //////////////////////////////////////////////////////////////*/
@@ -39,7 +40,7 @@ contract L2Slpx is Ownable {
         uint256 minOrderAmount;
         uint256 tokenConversionRate;
         uint256 orderFee; // 1e18 = 100%, 1e16 = 1%, 1e15 = 0.1%
-        address vTokenAddress;
+        address outputTokenAddress;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -87,33 +88,30 @@ contract L2Slpx is Ownable {
                 uint256 fee = (msg.value * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
                 uint256 amountAfterFee = msg.value - fee;
                 uint256 vTokenAmount = amountAfterFee * addressToTokenConversionInfo[tokenAddress].tokenConversionRate / 1e18;
-                IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).mint(msg.sender, vTokenAmount);
+                IVToken(addressToTokenConversionInfo[tokenAddress].outputTokenAddress).mint(msg.sender, vTokenAmount);
             } else {
                 uint256 fee = (amount * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
                 uint256 amountAfterFee = amount - fee;
                 IVToken(tokenAddress).transferFrom(msg.sender, address(this), amount);
                 uint256 vTokenAmount = amountAfterFee * addressToTokenConversionInfo[tokenAddress].tokenConversionRate / 1e18;
-                IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).mint(msg.sender, vTokenAmount);
+                IVToken(addressToTokenConversionInfo[tokenAddress].outputTokenAddress).mint(msg.sender, vTokenAmount);
             }
         }
 
         if (operation == Operation.Redeem) {
-            if (tokenAddress == address(0)) {
-                uint256 fee = (amount * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
-                uint256 amountAfterFee = amount - fee;
-                uint256 tokenAmount = (amountAfterFee * 1e18) / addressToTokenConversionInfo[tokenAddress].tokenConversionRate;
-                IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).burn(amount);
-                (bool success, ) = msg.sender.call{value: tokenAmount}("");
+            uint256 fee = (amount * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
+            uint256 amountAfterFee = amount - fee;
+            uint256 tokenAmount = (amountAfterFee * 1e18) / addressToTokenConversionInfo[tokenAddress].tokenConversionRate;
+            IVToken(tokenAddress).transferFrom(msg.sender, address(this), amount);
+            IVToken(tokenAddress).burn(amount);
+            if (addressToTokenConversionInfo[tokenAddress].outputTokenAddress == address(0)) {
+                (bool success, ) = payable(msg.sender).call{value: tokenAmount}("");
                 if (!success) revert ETHTransferFailed();
             } else {
-                uint256 fee = (amount * addressToTokenConversionInfo[tokenAddress].orderFee) / 1e18;
-                uint256 amountAfterFee = amount - fee;
-                uint256 tokenAmount = (amountAfterFee * 1e18) / addressToTokenConversionInfo[tokenAddress].tokenConversionRate;
-                IVToken(addressToTokenConversionInfo[tokenAddress].vTokenAddress).burn(amount);
-                IVToken(tokenAddress).transfer(msg.sender, tokenAmount);
+                IVToken(addressToTokenConversionInfo[tokenAddress].outputTokenAddress).transfer(msg.sender, tokenAmount);
             }
         }
-
+        
         emit CreateOrder(tokenAddress, operation, amount, remark);
     }
 
@@ -127,14 +125,13 @@ contract L2Slpx is Ownable {
         uint256 minOrderAmount,
         uint256 tokenConversionRate,
         uint256 orderFee,  // 1e18 = 100%, 1e16 = 1%, 1e15 = 0.1%
-        address vTokenAddress
+        address outputTokenAddress
     ) public onlyOwner {
         if (minOrderAmount <= 0) revert InvalidMinOrderAmount();
         if (tokenConversionRate <= 0) revert InvalidTokenConversionRate();
         if (orderFee > 1e18) revert InvalidTokenFee();  // Cannot be more than 100%
         if (operation != Operation.Mint && operation != Operation.Redeem) revert InvalidOperation();
-        if (vTokenAddress == address(0)) revert InvalidVTokenAddress();
-        addressToTokenConversionInfo[tokenAddress] = TokenConversionInfo(operation, minOrderAmount, tokenConversionRate, orderFee, vTokenAddress);
+        addressToTokenConversionInfo[tokenAddress] = TokenConversionInfo(operation, minOrderAmount, tokenConversionRate, orderFee, outputTokenAddress);
     }
 
     function removeTokenConversionInfo(address tokenAddress) external onlyOwner {

@@ -33,7 +33,7 @@ contract CREATE3Deploy is Script {
         /// @dev start the broadcast
         vm.startBroadcast();
         /// @dev get the predicted address of the L2Slpx contract
-        l2SlpxAddress = create3Factory.getDeployed(DEPLOYER, bytes32(abi.encodePacked("l2slpx")));
+        l2SlpxAddress = create3Factory.getDeployed(DEPLOYER, bytes32(abi.encodePacked("l2slpx1")));
         /// @dev stop the broadcast
         vm.stopBroadcast();
 
@@ -51,10 +51,10 @@ contract CREATE3Deploy is Script {
         );
 
         /// @dev the salt is the bytes32 of the string
-        bytes32 saltL2Slpx = bytes32(abi.encodePacked("l2slpx"));
-        bytes32 saltVETH = bytes32(abi.encodePacked("veth"));
-        bytes32 saltVDOT = bytes32(abi.encodePacked("vdot"));
-        bytes32 saltDOT = bytes32(abi.encodePacked("dot"));
+        bytes32 saltL2Slpx = bytes32(abi.encodePacked("l2slpx1"));
+        bytes32 saltVETH = bytes32(abi.encodePacked("veth1"));
+        bytes32 saltVDOT = bytes32(abi.encodePacked("vdot1"));
+        bytes32 saltDOT = bytes32(abi.encodePacked("dot1"));
 
         console.log("Starting deployment on sepolia");
         /// @dev select the sepolia network
