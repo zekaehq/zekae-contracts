@@ -1,6 +1,6 @@
 # Deployments
 
-```
+```bash
 == Return ==
 l2SlpxAddress: address 0x262e52beD191a441CBD28dB151A11D7c41384F72
 vETHAddress: address 0x6e0f9f2d25CC586965cBcF7017Ff89836ddeF9CC
