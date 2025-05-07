@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 import {IVToken} from "src/L2Slpx/IVToken.sol";
 import {IZUSD} from "src/IZUSD.sol";
 import {IL2Slpx} from "src/L2Slpx/IL2Slpx.sol";
+import {ISimpleOracle} from "src/ISimpleOracle.sol";
+
 
 contract ZekaeVault {
     uint256 public constant MIN_COLLATERAL_RATIO = 1.5e18;
@@ -12,7 +14,7 @@ contract ZekaeVault {
     IVToken public veth;
     IZUSD public zusd;
     IL2Slpx public l2Slpx;
-    // ISimpleMockOracle public oracle;
+    ISimpleOracle public oracle;
     
     error CollateralRatioIsLessThanMinimumCollateralRatio();
     error CollateralRatioIsGreaterOrEqualToMaximumCollateralRatio();
@@ -20,10 +22,11 @@ contract ZekaeVault {
     mapping(address => uint256) public addressToDeposit;
     mapping(address => uint256) public addressToMinted;
 
-    constructor(address _veth, address _zusd, address _l2Slpx, address _liquidator) {
+    constructor(address _veth, address _zusd, address _l2Slpx, address _oracle, address _liquidator) {
         veth = IVToken(_veth);
         zusd = IZUSD(_zusd);
         l2Slpx = IL2Slpx(_l2Slpx);
+        oracle = ISimpleOracle(_oracle);
         liquidator = _liquidator;
     }
 
@@ -63,7 +66,7 @@ contract ZekaeVault {
         uint256 userMinted = addressToMinted[user];
         
         // Calculate the amount of lstoken to be transferred to the liquidator
-        uint256 amountOfLstokenToBeLiquidated = (userMinted * 1e18) / l2Slpx.getTokenConversionInfo(address(veth)).tokenConversionRate;
+        uint256 amountOfLstokenToBeLiquidated = (userMinted * 1e18) / oracle.latestAnswer();
 
         // Update state before external calls
         addressToDeposit[user] -= amountOfLstokenToBeLiquidated;
@@ -79,7 +82,7 @@ contract ZekaeVault {
         if (minted == 0) {
             return type(uint256).max;
         }
-        uint256 totalValue = addressToDeposit[user] * l2Slpx.getTokenConversionInfo(address(veth)).tokenConversionRate;
+        uint256 totalValue = addressToDeposit[user] * oracle.latestAnswer();
         return totalValue / minted;
     }
 }

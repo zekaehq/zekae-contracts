@@ -5,10 +5,13 @@ import {IL2Slpx} from "src/L2Slpx/IL2Slpx.sol";
 
 contract SimpleOracle is Ownable {
     uint256 public latestAnswer;
-    IL2Slpx public l2Slpx = IL2Slpx(0x262e52beD191a441CBD28dB151A11D7c41384F72);
-    address public constant VETH = 0x6e0f9f2d25CC586965cBcF7017Ff89836ddeF9CC;
+    IL2Slpx public l2Slpx;
+    address public VETH;
 
-    constructor(address _owner) Ownable(_owner) {}
+    constructor(address _owner, address _l2Slpx, address _veth) Ownable(_owner) {
+        l2Slpx = IL2Slpx(_l2Slpx);
+        VETH = _veth;
+    }
 
     function setLatestAnswer(uint256 _latestEthPrice) public onlyOwner {
         uint256 vethConversionRate = l2Slpx.getTokenConversionInfo(VETH).tokenConversionRate;
