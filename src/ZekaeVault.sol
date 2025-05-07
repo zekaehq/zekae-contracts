@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.28;
 
 import {IVToken} from "src/L2Slpx/IVToken.sol";
 import {IZUSD} from "src/IZUSD.sol";
@@ -10,7 +10,6 @@ contract ZekaeVault {
     address public liquidator;
 
     IVToken public veth;
-    IVToken public vdot;
     IZUSD public zusd;
     IL2Slpx public l2Slpx;
     // ISimpleMockOracle public oracle;
@@ -21,15 +20,15 @@ contract ZekaeVault {
     mapping(address => uint256) public addressToDeposit;
     mapping(address => uint256) public addressToMinted;
 
-    constructor(address _vdot, address _zusd, address _l2Slpx, address _liquidator) {
-        vdot = IVToken(_vdot);
+    constructor(address _veth, address _zusd, address _l2Slpx, address _liquidator) {
+        veth = IVToken(_veth);
         zusd = IZUSD(_zusd);
         l2Slpx = IL2Slpx(_l2Slpx);
         liquidator = _liquidator;
     }
 
     function deposit(uint256 amount) public {
-        vdot.transferFrom(msg.sender, address(this), amount);
+        veth.transferFrom(msg.sender, address(this), amount);
         addressToDeposit[msg.sender] += amount;
     }
 
@@ -52,7 +51,7 @@ contract ZekaeVault {
             revert CollateralRatioIsLessThanMinimumCollateralRatio();
         }
         addressToDeposit[msg.sender] -= amount;
-        vdot.transfer(msg.sender, amount);
+        veth.transfer(msg.sender, amount);
     }
 
     function liquidate(address user) public {
@@ -64,7 +63,7 @@ contract ZekaeVault {
         uint256 userMinted = addressToMinted[user];
         
         // Calculate the amount of lstoken to be transferred to the liquidator
-        uint256 amountOfLstokenToBeLiquidated = (userMinted * 1e18) / l2Slpx.getTokenConversionInfo(address(vdot)).tokenConversionRate;
+        uint256 amountOfLstokenToBeLiquidated = (userMinted * 1e18) / l2Slpx.getTokenConversionInfo(address(veth)).tokenConversionRate;
 
         // Update state before external calls
         addressToDeposit[user] -= amountOfLstokenToBeLiquidated;
@@ -72,7 +71,7 @@ contract ZekaeVault {
         
         // Perform external calls last
         zusd.burn(user, userMinted);
-        vdot.transfer(liquidator, amountOfLstokenToBeLiquidated);
+        veth.transfer(liquidator, amountOfLstokenToBeLiquidated);
     }
 
     function collateralRatio(address user) public view returns (uint256) {
@@ -80,7 +79,7 @@ contract ZekaeVault {
         if (minted == 0) {
             return type(uint256).max;
         }
-        uint256 totalValue = addressToDeposit[user] * l2Slpx.getTokenConversionInfo(address(vdot)).tokenConversionRate;
+        uint256 totalValue = addressToDeposit[user] * l2Slpx.getTokenConversionInfo(address(veth)).tokenConversionRate;
         return totalValue / minted;
     }
 }
